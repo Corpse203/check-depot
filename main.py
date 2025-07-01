@@ -9,6 +9,7 @@ import databases
 import sqlalchemy
 import os
 import csv
+import json
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 database = databases.Database(DATABASE_URL)
@@ -94,7 +95,12 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
 
     query = f"""
-        SELECT ip_address, array_agg(json_build_object('email', email, 'pseudo', pseudo, 'casino', casino, 'submitted_at', submitted_at)) AS entries
+        SELECT ip_address, array_agg(json_build_object(
+            'email', email,
+            'pseudo', pseudo,
+            'casino', casino,
+            'submitted_at', submitted_at
+        )) AS entries
         FROM submissions
         {where_clause}
         GROUP BY ip_address
@@ -106,16 +112,25 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
     rows = await database.fetch_all(query=query, values=values)
 
     has_next = len(rows) > per_page
-    entries_by_ip = rows[:per_page]
 
-    # ❗ correction ici : on enlève 'limit' et 'offset' des paramètres
+    # ✅ Désérialiser les entrées JSON correctement
+    processed_rows = []
+    for r in rows[:per_page]:
+        raw_entries = r["entries"]
+        parsed_entries = [json.loads(json.dumps(e)) for e in raw_entries]
+        processed_rows.append({
+            "ip_address": r["ip_address"],
+            "entries": parsed_entries
+        })
+
+    # ✅ Nettoyer les paramètres pour la requête de total
     count_values = {k: v for k, v in values.items() if k not in ["limit", "offset"]}
     total_query = f"SELECT COUNT(*) FROM submissions {where_clause}"
     total_count = await database.execute(total_query, count_values)
 
     return templates.TemplateResponse("admin.html", {
         "request": request,
-        "entries_by_ip": entries_by_ip,
+        "entries_by_ip": processed_rows,
         "total_count": total_count,
         "ip": ip,
         "pseudo": pseudo,
