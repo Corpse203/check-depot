@@ -9,7 +9,6 @@ import databases
 import sqlalchemy
 import os
 import csv
-import json
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 database = databases.Database(DATABASE_URL)
@@ -66,7 +65,6 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
     if credentials.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    # Query params
     ip = request.query_params.get("ip", "")
     pseudo = request.query_params.get("pseudo", "")
     casino = request.query_params.get("casino", "")
@@ -113,17 +111,16 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
 
     has_next = len(rows) > per_page
 
-    # ✅ Désérialiser les entrées JSON correctement
+    # ✅ Corrigé ici : transformation explicite avec dict()
     processed_rows = []
     for r in rows[:per_page]:
         raw_entries = r["entries"]
-        parsed_entries = [json.loads(json.dumps(e)) for e in raw_entries]
+        parsed_entries = [dict(e) for e in raw_entries]
         processed_rows.append({
             "ip_address": r["ip_address"],
             "entries": parsed_entries
         })
 
-    # ✅ Nettoyer les paramètres pour la requête de total
     count_values = {k: v for k, v in values.items() if k not in ["limit", "offset"]}
     total_query = f"SELECT COUNT(*) FROM submissions {where_clause}"
     total_count = await database.execute(total_query, count_values)
