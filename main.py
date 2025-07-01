@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -51,7 +50,13 @@ async def form_get(request: Request):
 @app.post("/submit")
 async def handle_submit(request: Request, email: str = Form(...), pseudo: str = Form(...), casino: str = Form(...)):
     client_ip = request.client.host
-    query = submissions.insert().values(email=email, pseudo=pseudo, casino=casino, ip_address=client_ip, submitted_at=datetime.utcnow())
+    query = submissions.insert().values(
+        email=email,
+        pseudo=pseudo,
+        casino=casino,
+        ip_address=client_ip,
+        submitted_at=datetime.utcnow()
+    )
     await database.execute(query)
     return RedirectResponse(url="/", status_code=303)
 
@@ -60,7 +65,7 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
     if credentials.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    # Params
+    # Query params
     ip = request.query_params.get("ip", "")
     pseudo = request.query_params.get("pseudo", "")
     casino = request.query_params.get("casino", "")
@@ -103,8 +108,10 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
     has_next = len(rows) > per_page
     entries_by_ip = rows[:per_page]
 
+    # ❗ correction ici : on enlève 'limit' et 'offset' des paramètres
+    count_values = {k: v for k, v in values.items() if k not in ["limit", "offset"]}
     total_query = f"SELECT COUNT(*) FROM submissions {where_clause}"
-    total_count = await database.execute(total_query, values)
+    total_count = await database.execute(total_query, count_values)
 
     return templates.TemplateResponse("admin.html", {
         "request": request,
@@ -122,7 +129,7 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
 async def export_csv(credentials: HTTPBasicCredentials = Depends(security)):
     if credentials.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
+    
     query = "SELECT * FROM submissions ORDER BY submitted_at DESC"
     rows = await database.fetch_all(query)
 
@@ -132,5 +139,5 @@ async def export_csv(credentials: HTTPBasicCredentials = Depends(security)):
         writer.writerow(["id", "email", "pseudo", "casino", "ip_address", "submitted_at"])
         for r in rows:
             writer.writerow([r["id"], r["email"], r["pseudo"], r["casino"], r["ip_address"], r["submitted_at"]])
-
+    
     return FileResponse(csv_path, media_type='text/csv', filename="submissions_export.csv")
