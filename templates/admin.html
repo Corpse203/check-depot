@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Admin Panel v2</title>
+</head>
+<body class="bg-black text-white p-8">
+  <h1 class="text-3xl text-yellow-400 font-bold mb-6">Panel Admin</h1>
+
+  <form method="get" class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <input type="text" name="ip" placeholder="Filtrer par IP" class="p-2 rounded text-black" value="{{ ip }}">
+    <input type="text" name="pseudo" placeholder="Filtrer par pseudo" class="p-2 rounded text-black" value="{{ pseudo }}">
+    <input type="text" name="casino" placeholder="Filtrer par casino" class="p-2 rounded text-black" value="{{ casino }}">
+    <select name="range" class="p-2 rounded text-black">
+      <option value="">Toutes les dates</option>
+      <option value="7" {% if range == '7' %}selected{% endif %}>7 derniers jours</option>
+      <option value="30" {% if range == '30' %}selected{% endif %}>30 derniers jours</option>
+    </select>
+    <button type="submit" class="bg-yellow-500 text-black px-4 py-2 rounded hover:bg-yellow-400 col-span-1 md:col-span-4">Filtrer</button>
+  </form>
+
+  <div class="mb-4">
+    <a href="/export" class="bg-yellow-500 text-black px-4 py-2 rounded hover:bg-yellow-400">Exporter CSV</a>
+  </div>
+
+  <div class="mb-6 text-sm text-gray-300">
+    Total IP uniques : {{ entries_by_ip | length }}<br>
+    Total dépôts : {{ total_count }}
+  </div>
+
+  {% for entry in entries_by_ip %}
+    <div class="mb-6 p-4 rounded bg-gray-900 shadow">
+      <h2 class="text-xl text-blue-400 font-semibold mb-2">IP: {{ entry['ip_address'] }}</h2>
+      <ul class="list-disc ml-6">
+        {% for item in entry['entries'] %}
+        <li>
+          <strong>{{ item['pseudo'] }}</strong> - {{ item['email'] }} - {{ item['casino'] }} - 
+          <span class="text-gray-400">{{ item['submitted_at'] }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endfor %}
+
+  <div class="mt-8 flex justify-center space-x-4">
+    {% if page > 1 %}
+      <a href="?page={{ page - 1 }}&ip={{ ip }}&pseudo={{ pseudo }}&casino={{ casino }}&range={{ range }}" class="underline text-yellow-400">Page précédente</a>
+    {% endif %}
+    <span class="text-gray-400">Page {{ page }}</span>
+    {% if has_next %}
+      <a href="?page={{ page + 1 }}&ip={{ ip }}&pseudo={{ pseudo }}&casino={{ casino }}&range={{ range }}" class="underline text-yellow-400">Page suivante</a>
+    {% endif %}
+  </div>
+
+</body>
+</html>
