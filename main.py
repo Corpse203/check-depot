@@ -94,47 +94,43 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
 
     query = f'''
-        SELECT ip_address, array_agg(json_build_object(
-            'email', email,
-            'pseudo', pseudo,
-            'casino', casino,
-            'submitted_at', submitted_at
-        )) AS entries
+        SELECT ip_address, email, pseudo, casino, submitted_at
         FROM submissions
         {where_clause}
-        GROUP BY ip_address
-        ORDER BY MAX(submitted_at) DESC
+        ORDER BY submitted_at DESC
         LIMIT :limit OFFSET :offset
     '''
     values["limit"] = per_page + 1
     values["offset"] = offset
     rows = await database.fetch_all(query=query, values=values)
 
-    has_next = len(rows) > per_page
-
-    processed_rows = []
+    # Regrouper par IP
+    grouped = {}
     for r in rows[:per_page]:
-        raw_entries = r["entries"]
-        parsed_entries = raw_entries
-        processed_rows.append({
-            "ip_address": r["ip_address"],
-            "entries": parsed_entries
+        ip = r["ip_address"]
+        if ip not in grouped:
+            grouped[ip] = []
+        grouped[ip].append({
+            "email": r["email"],
+            "pseudo": r["pseudo"],
+            "casino": r["casino"],
+            "submitted_at": r["submitted_at"]
         })
 
+    count_query = f"SELECT COUNT(DISTINCT ip_address) FROM submissions {where_clause}"
     count_values = {k: v for k, v in values.items() if k not in ["limit", "offset"]}
-    total_query = f"SELECT COUNT(DISTINCT ip_address) FROM submissions {where_clause}"
-    total_count = await database.fetch_val(query=total_query, values=count_values)
+    total_count = await database.fetch_val(query=count_query, values=count_values)
 
     return templates.TemplateResponse("admin.html", {
         "request": request,
-        "entries_by_ip": processed_rows,
+        "entries_by_ip": grouped.items(),
         "total_count": total_count,
         "ip": ip,
         "pseudo": pseudo,
         "casino": casino,
         "range": date_range,
         "page": page,
-        "has_next": has_next
+        "has_next": len(rows) > per_page
     })
 
 @app.get("/export")
@@ -145,6 +141,7 @@ async def export_csv(credentials: HTTPBasicCredentials = Depends(security)):
     query = "SELECT * FROM submissions ORDER BY submitted_at DESC"
     rows = await database.fetch_all(query)
 
+    os.makedirs("static", exist_ok=True)
     csv_path = "static/submissions_export.csv"
     with open(csv_path, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -152,4 +149,4 @@ async def export_csv(credentials: HTTPBasicCredentials = Depends(security)):
         for r in rows:
             writer.writerow([r["id"], r["email"], r["pseudo"], r["casino"], r["ip_address"], r["submitted_at"]])
 
-    return FileResponse(csv_path, media_type='text/csv', filename=f"submissions_export_{datetime.utcnow().date()}.csv")
+    return FileResponse(csv_path, media_type='text/csv', filename="submissions_export.csv")
