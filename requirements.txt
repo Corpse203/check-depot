@@ -4,3 +4,4 @@ jinja2
 sqlalchemy
 databases[postgresql]
 psycopg2-binary
+python-multipart
