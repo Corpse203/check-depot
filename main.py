@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,7 +10,6 @@ import databases
 import sqlalchemy
 import os
 import csv
-import json
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 database = databases.Database(DATABASE_URL)
@@ -36,7 +36,6 @@ templates = Jinja2Templates(directory="templates")
 security = HTTPBasic()
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "changeme")
 
-
 @app.on_event("startup")
 async def startup():
     await database.connect()
@@ -45,11 +44,9 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-
 @app.get("/", response_class=HTMLResponse)
 async def form_get(request: Request):
     return templates.TemplateResponse("form.html", {"request": request})
-
 
 @app.post("/submit")
 async def handle_submit(request: Request, email: str = Form(...), pseudo: str = Form(...), casino: str = Form(...)):
@@ -64,13 +61,11 @@ async def handle_submit(request: Request, email: str = Form(...), pseudo: str = 
     await database.execute(query)
     return RedirectResponse(url="/", status_code=303)
 
-
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depends(security)):
     if credentials.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    # Query params
     ip = request.query_params.get("ip", "")
     pseudo = request.query_params.get("pseudo", "")
     casino = request.query_params.get("casino", "")
@@ -98,7 +93,7 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
 
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
 
-    query = f"""
+    query = f'''
         SELECT ip_address, array_agg(json_build_object(
             'email', email,
             'pseudo', pseudo,
@@ -110,24 +105,22 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
         GROUP BY ip_address
         ORDER BY MAX(submitted_at) DESC
         LIMIT :limit OFFSET :offset
-    """
+    '''
     values["limit"] = per_page + 1
     values["offset"] = offset
     rows = await database.fetch_all(query=query, values=values)
 
     has_next = len(rows) > per_page
 
-    # 🔄 Traiter les résultats pour affichage
-processed_rows = []
-for r in rows[:per_page]:
-    raw_entries = r["entries"]
-    parsed_entries = raw_entries  # ✅ plus de dict(e)
-    processed_rows.append({
-        "ip_address": r["ip_address"],
-        "entries": parsed_entries
-    })
+    processed_rows = []
+    for r in rows[:per_page]:
+        raw_entries = r["entries"]
+        parsed_entries = raw_entries
+        processed_rows.append({
+            "ip_address": r["ip_address"],
+            "entries": parsed_entries
+        })
 
-    # 🔄 Correction ici : utiliser fetch_val au lieu de execute
     count_values = {k: v for k, v in values.items() if k not in ["limit", "offset"]}
     total_query = f"SELECT COUNT(DISTINCT ip_address) FROM submissions {where_clause}"
     total_count = await database.fetch_val(query=total_query, values=count_values)
@@ -144,12 +137,11 @@ for r in rows[:per_page]:
         "has_next": has_next
     })
 
-
 @app.get("/export")
 async def export_csv(credentials: HTTPBasicCredentials = Depends(security)):
     if credentials.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-    
+
     query = "SELECT * FROM submissions ORDER BY submitted_at DESC"
     rows = await database.fetch_all(query)
 
@@ -159,5 +151,5 @@ async def export_csv(credentials: HTTPBasicCredentials = Depends(security)):
         writer.writerow(["id", "email", "pseudo", "casino", "ip_address", "submitted_at"])
         for r in rows:
             writer.writerow([r["id"], r["email"], r["pseudo"], r["casino"], r["ip_address"], r["submitted_at"]])
-    
-    return FileResponse(csv_path, media_type='text/csv', filename="submissions_export.csv")
+
+    return FileResponse(csv_path, media_type='text/csv', filename=f"submissions_export_{datetime.utcnow().date()}.csv")
