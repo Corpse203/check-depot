@@ -118,14 +118,14 @@ async def admin_panel(request: Request, credentials: HTTPBasicCredentials = Depe
     has_next = len(rows) > per_page
 
     # 🔄 Traiter les résultats pour affichage
-    processed_rows = []
-    for r in rows[:per_page]:
-        raw_entries = r["entries"]
-        parsed_entries = [dict(e) for e in raw_entries]
-        processed_rows.append({
-            "ip_address": r["ip_address"],
-            "entries": parsed_entries
-        })
+processed_rows = []
+for r in rows[:per_page]:
+    raw_entries = r["entries"]
+    parsed_entries = raw_entries  # ✅ plus de dict(e)
+    processed_rows.append({
+        "ip_address": r["ip_address"],
+        "entries": parsed_entries
+    })
 
     # 🔄 Correction ici : utiliser fetch_val au lieu de execute
     count_values = {k: v for k, v in values.items() if k not in ["limit", "offset"]}
