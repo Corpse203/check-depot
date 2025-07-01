@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <title>Admin Panel v2</title>
+  <title>Admin Panel</title>
 </head>
 <body class="bg-black text-white p-8">
   <h1 class="text-3xl text-yellow-400 font-bold mb-6">Panel Admin</h1>
@@ -32,15 +33,29 @@
 
   {% for entry in entries_by_ip %}
     <div class="mb-6 p-4 rounded bg-gray-900 shadow">
-      <h2 class="text-xl text-blue-400 font-semibold mb-2">IP: {{ entry['ip_address'] }}</h2>
-      <ul class="list-disc ml-6">
-        {% for item in entry['entries'] %}
-        <li>
-          <strong>{{ item['pseudo'] }}</strong> - {{ item['email'] }} - {{ item['casino'] }} - 
-          <span class="text-gray-400">{{ item['submitted_at'] }}</span>
-        </li>
-        {% endfor %}
-      </ul>
+      <h2 class="text-xl text-blue-400 font-semibold mb-4">IP: {{ entry.ip_address }}</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-gray-800 text-white text-sm rounded shadow">
+          <thead class="bg-yellow-500 text-black">
+            <tr>
+              <th class="px-4 py-2 text-left">Pseudo</th>
+              <th class="px-4 py-2 text-left">Email</th>
+              <th class="px-4 py-2 text-left">Casino</th>
+              <th class="px-4 py-2 text-left">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in entry.entries %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
+              <td class="px-4 py-2">{{ item.pseudo or '—' }}</td>
+              <td class="px-4 py-2">{{ item.email or '—' }}</td>
+              <td class="px-4 py-2">{{ item.casino or '—' }}</td>
+              <td class="px-4 py-2 text-gray-400">{{ item.submitted_at or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   {% endfor %}
 
